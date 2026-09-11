@@ -1,7 +1,6 @@
 # NeuroAid V4 — Technical Architecture & System Design
 
 > **Document Version:** 4.0.0  
-> **Repository:** `unnkarm/NeuroAid-AI`  
 > **Target Alignment:** Smart India Hackathon (SIH PS 26003)  
 > **Architecture Pattern:** Multi-Tier SPA + FastAPI Microservices + Offline-First Sync Layer  
 
