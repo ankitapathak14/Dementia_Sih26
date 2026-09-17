@@ -230,3 +230,105 @@ class GameStatsSummary(BaseModel):
     current_streak_days: int
     domain_scores: Dict[str, float]
     recent_sessions: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+# ── Rhythm & Recall Schemas ───────────────────────────────────────────────
+
+class MusicTrack(BaseModel):
+    music_id: str
+    title: str
+    artist: str
+    region: str = "pan-india"
+    language: str = "hindi"
+    genre: str = "folk"
+    era: str = "1960-1980"
+    audio_url: str
+    duration_seconds: int = 180
+    is_active: bool = True
+    created_at: Optional[str] = None
+    # Optional beat metadata (list of expected beat timestamps in seconds)
+    beat_timestamps: Optional[List[float]] = None
+    description: Optional[str] = None
+
+
+class RhythmSessionCreate(BaseModel):
+    client_action_id: Optional[str] = Field(default=None, max_length=100)
+    mode: str  # "recognition" | "rhythm_tap" | "hum_along" | "memory_connection"
+    music_ids: List[str] = Field(default_factory=list)
+    duration_seconds: float = Field(default=0, ge=0)
+    # Mode 1 — Song Recognition
+    recognition_correct: int = 0
+    recognition_total: int = 0
+    # Mode 2 — Rhythm Tap
+    tap_count: int = 0
+    rhythm_engagement_pct: Optional[float] = None
+    # Mode 3 — Hum Along
+    voice_participated: bool = False
+    voice_duration_seconds: float = 0
+    # Mode 4 — Memory Connection
+    memory_responses: List[str] = Field(default_factory=list)
+    mood_responses: List[str] = Field(default_factory=list)
+    # Rounds detail
+    rounds: Optional[List[Dict[str, Any]]] = None
+
+
+class RhythmSessionResponse(BaseModel):
+    session_id: str
+    user_id: str
+    mode: str
+    duration_seconds: float
+    recognition_correct: int
+    recognition_total: int
+    tap_count: int
+    rhythm_engagement_pct: Optional[float]
+    voice_participated: bool
+    memory_responses: List[str]
+    mood_responses: List[str]
+    engagement_label: str
+    encouragement: str
+    timestamp: str
+
+
+class RhythmRoundData(BaseModel):
+    session_id: str
+    round_number: int
+    song_id: str
+    mode: str
+    # Recognition
+    selected_answer: Optional[str] = None
+    correct_answer: Optional[str] = None
+    is_correct: Optional[bool] = None
+    response_time_ms: Optional[float] = None
+    # Rhythm tap
+    tap_timestamps: Optional[List[float]] = None
+    expected_beat_timestamps: Optional[List[float]] = None
+    timing_errors: Optional[List[float]] = None
+    rhythm_accuracy: Optional[float] = None
+    # Memory / mood
+    memory_response: Optional[str] = None
+    mood_response: Optional[str] = None
+
+
+class MusicPreferences(BaseModel):
+    region: Optional[str] = None
+    language: Optional[str] = None
+    youth_era: Optional[str] = None
+    favorite_genres: List[str] = Field(default_factory=list)
+    favorite_artists: List[str] = Field(default_factory=list)
+    favorite_song_ids: List[str] = Field(default_factory=list)
+    session_duration_minutes: int = 10
+    evening_session_enabled: bool = False
+    evening_session_time: Optional[str] = None  # "HH:MM" format
+
+
+class RhythmAnalytics(BaseModel):
+    patient_id: str
+    total_sessions: int
+    avg_duration_minutes: float
+    avg_recognition_pct: Optional[float]
+    rhythm_participation_label: str
+    voice_participation_pct: float
+    recent_mood_responses: List[str]
+    trend_note: str
+    sessions_this_week: int
+    songs_played_total: int

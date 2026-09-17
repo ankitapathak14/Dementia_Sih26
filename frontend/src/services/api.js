@@ -261,3 +261,41 @@ export async function resetAndSeedDemo() {
   return request("POST", "/demo/reset-and-seed", null, false);
 }
 
+// ── Rhythm & Recall API ───────────────────────────────────────────────────────
+export async function getRhythmMusic() {
+  return request("GET", "/rhythm/music", null, false);
+}
+
+export async function getRhythmMusicPersonalized(patientId) {
+  const path = patientId ? `/rhythm/music/personalized?patient_id=${patientId}` : "/rhythm/music/personalized";
+  return request("GET", path, null, true);
+}
+
+export async function saveRhythmSession(sessionData) {
+  return request("POST", "/rhythm/sessions", sessionData, true);
+}
+
+export async function getRhythmSessions(patientId, limit = 20) {
+  const query = patientId ? `?patient_id=${patientId}&limit=${limit}` : `?limit=${limit}`;
+  return request("GET", `/rhythm/sessions${query}`, null, true);
+}
+
+export async function saveRhythmRound(sessionId, roundData) {
+  return request("POST", `/rhythm/sessions/${sessionId}/round`, roundData, true);
+}
+
+export async function getRhythmAnalytics(patientId) {
+  const path = patientId ? `/rhythm/analytics?patient_id=${patientId}` : "/rhythm/analytics";
+  return request("GET", path, null, true);
+}
+export async function saveRhythmPreferences(preferences) {
+  return request("POST", "/rhythm/preferences", preferences, true);
+}
+
+export async function getRhythmPreferences() {
+  return request("GET", "/rhythm/preferences", null, true);
+}
+
+export async function deleteRhythmSession(sessionId) {
+  return request("DELETE", `/rhythm/sessions/${sessionId}`, null, true);
+}

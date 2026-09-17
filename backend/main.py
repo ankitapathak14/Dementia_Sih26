@@ -15,6 +15,7 @@ from routers import (
     sync_api,
     dashboard_api,
     demo_api,
+    rhythm_api,
 )
 from utils.logger import log_error, log_info
 
@@ -59,6 +60,8 @@ app.include_router(reminders_api.router, prefix="/api")
 app.include_router(sync_api.router, prefix="/api")
 app.include_router(dashboard_api.router, prefix="/api")
 app.include_router(demo_api.router, prefix="/api")
+app.include_router(rhythm_api.router, prefix="/api")
+
 
 
 # ── Global exception handler ──────────────────────────────────────────────────

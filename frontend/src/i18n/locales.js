@@ -93,11 +93,13 @@ export const messages = {
     objectRecognitionTitle: "Object Recognition",
     patternCompletionTitle: "Pattern Completion",
     dailyRoutineTitle: "Daily Routine Planner",
+    rhythmRecallTitle: "Rhythm & Recall",
     matchCardsInst: "Flip cards and find matching pairs of items.",
     sequenceInst: "Watch the glowing pattern carefully and repeat the sequence.",
     objectInst: "Identify which object was shown in the previous memory card.",
     patternInst: "Find the missing piece that completes the logical pattern.",
     routineInst: "Arrange today's daily activities in correct chronological order.",
+    rhythmInst: "Enjoy music, recognize familiar songs, tap along to the rhythm, and share memories.",
 
     // General Actions
     backToGames: "Back to Brain Games",

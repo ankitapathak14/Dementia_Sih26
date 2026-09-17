@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { DarkCard, Btn } from "../components/RiskDashboard";
 import { getGamesList, getGameStats } from "../services/api";
 import { useI18n } from "../i18n/LanguageContext";
+import { registerVoiceContext } from "../utils/voiceDispatcher";
+import { useVoicePageAnnouncer } from "../hooks/useVoicePageAnnouncer";
 
 const LIME = "#C8F135";
 
@@ -66,10 +68,22 @@ const GAMES_META = [
     desc: "Order everyday activities from morning tea to night rest.",
     benefit: "Strengthens temporal orientation and procedural sequencing.",
   },
+  {
+    id: "rhythm_recall",
+    page: "game-rhythm-recall",
+    titleKey: "rhythmRecallTitle",
+    title: "Rhythm & Recall",
+    domain: "Auditory Memory & Rhythm Engagement",
+    icon: "🎵",
+    color: "#f472b6",
+    descKey: "rhythmInst",
+    desc: "Enjoy familiar music, recognize nostalgic songs, tap to the beat, and share memory connections.",
+    benefit: "Stimulates auditory recall, motor rhythm engagement, and positive emotional memory.",
+  },
 ];
 
 export default function CognitiveGamesHub({ setPage }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [stats, setStats] = useState({
     total_games_played: 0,
     total_stars_earned: 0,
@@ -86,6 +100,50 @@ export default function CognitiveGamesHub({ setPage }) {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  // ── Voice: Register games hub context with all game options ───────────
+  useEffect(() => {
+    const gameOptions = GAMES_META.map(g => ({ id: g.page, label: g.title }));
+
+    const unregister = registerVoiceContext("games_hub", (rawText, parsed) => {
+      const text = rawText.toLowerCase();
+      // Match by game title or id
+      const matchedGame = GAMES_META.find(g =>
+        text.includes(g.title.toLowerCase()) ||
+        text.includes(g.id.toLowerCase().replace("_", " "))
+      );
+      if (matchedGame) {
+        setPage(matchedGame.page);
+        return { handled: true, speakText: `Opening ${matchedGame.title}.` };
+      }
+      return false;
+    }, gameOptions);
+
+    return unregister;
+  }, [setPage]);
+
+  // ── Voice: Proactive game list announcement on mount ──────────────
+  const langCode = (language || "en-IN").split("-")[0].toLowerCase();
+  const gameNames = GAMES_META.map(g => g.title).join(", ");
+  const gamesAnnouncement = langCode === "hi"
+    ? [
+        "ब्रेन गेम्स खुल गया है।",
+        `यहाँ ${GAMES_META.length} गेम हैं: ${gameNames}।`,
+        "आप किसे खेलना चाहेंगे?",
+      ]
+    : langCode === "bn"
+    ? [
+        "ব্রেন গেম খুলেছে।",
+        `এখানে ${GAMES_META.length}টি গেম রয়েছে: ${gameNames}।`,
+        "আপনি কোনটি খেলতে চান?",
+      ]
+    : [
+        `Brain Games is open. There are ${GAMES_META.length} activities available.`,
+        `You can choose: ${gameNames}.`,
+        "Just say the name of the game you'd like to try.",
+      ];
+
+  useVoicePageAnnouncer(null, gamesAnnouncement);
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", paddingBottom: 40 }}>

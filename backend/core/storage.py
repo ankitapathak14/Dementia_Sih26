@@ -88,3 +88,8 @@ routine_logs_store = JsonStore(settings.data_dir / "routine_logs.json", list)
 sync_receipts_store = JsonStore(settings.data_dir / "sync_receipts.json", dict)
 audit_store = JsonStore(settings.data_dir / "audit_log.json", list)
 consent_store = JsonStore(settings.data_dir / "consents.json", dict)
+
+# ── Rhythm & Recall stores ────────────────────────────────────────────────────
+rhythm_music_store = JsonStore(settings.data_dir / "rhythm_music.json", list)
+rhythm_sessions_store = JsonStore(settings.data_dir / "rhythm_sessions.json", list)
+rhythm_preferences_store = JsonStore(settings.data_dir / "rhythm_preferences.json", dict)

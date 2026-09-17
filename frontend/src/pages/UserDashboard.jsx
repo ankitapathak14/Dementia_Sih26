@@ -5,6 +5,8 @@ import { getUser, getMyResults, getDoctors } from "../services/api";
 import { useAssessment } from "../context/AssessmentContext";
 import { submitAnalysis } from "../services/api";
 import { useI18n } from "../i18n/LanguageContext";
+import { registerVoiceContext } from "../utils/voiceDispatcher";
+import { useVoicePageAnnouncer } from "../hooks/useVoicePageAnnouncer";
 
 const LIME = "#C8F135";
 const RED  = "#e84040";
@@ -354,7 +356,7 @@ function DoctorPanel() {
    Main Dashboard
 ───────────────────────────────────────────── */
 export default function UserDashboard({ setPage }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const user      = getUser();
   const firstName = user?.full_name?.split(" ")[0] || "there";
   const [results,  setResults]  = useState([]);
@@ -362,6 +364,45 @@ export default function UserDashboard({ setPage }) {
   const [doctorInfo, setDoctorInfo] = useState({ doctor: null, pending_doctor: null });
 
   const { completedCount } = useAssessment();
+
+  // ── Voice: Register dashboard navigation context ─────────────────────
+  useEffect(() => {
+    const DASHBOARD_OPTIONS = [
+      { id: "games",       label: "Brain Games" },
+      { id: "daily-care", label: "Medicines" },
+      { id: "messages",    label: "Messages" },
+      { id: "assessments", label: "Assessments" },
+      { id: "results",     label: "Results" },
+    ];
+
+    const unregister = registerVoiceContext("dashboard", (rawText, parsed) => {
+      const text = rawText.toLowerCase();
+      // Allow navigating from dashboard by option name
+      const matchedOpt = DASHBOARD_OPTIONS.find(
+        o => text.includes(o.id.replace("-", " ")) || text.includes(o.label.toLowerCase())
+      );
+      if (matchedOpt) {
+        setPage(matchedOpt.id);
+        return { handled: true, speakText: `Opening ${matchedOpt.label}.` };
+      }
+      return false;
+    }, DASHBOARD_OPTIONS);
+
+    return unregister;
+  }, [setPage]);
+
+  // ── Voice: Proactive greeting on dashboard mount ──────────────────────
+  const langCode = (language || "en-IN").split("-")[0].toLowerCase();
+  const dashboardAnnouncement = langCode === "hi"
+    ? ["आपके डैशबोर्ड में आपका स्वागत है।", "आप कह सकते हैं: ब्रेन गेम्स खोलें, दवाइयाँ दिखाओ, या मेरे परिणाम दिखाओ।"]
+    : langCode === "bn"
+    ? ["আপনার ড্যাশবোর্ডে স্বাগতম।", "আপনি বলতে পারেন: ব্রেন গেম খুলুন, ওষুধ দেখাও, বা আমার ফলাফল দেখাও।"]
+    : [
+        `Welcome back, ${firstName}!`,
+        "Your dashboard is open. You can say: Open brain games, Show my medicines, Open messages, or Show my results.",
+      ];
+
+  useVoicePageAnnouncer(null, dashboardAnnouncement);
 
   useEffect(() => {
     getMyResults()

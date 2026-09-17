@@ -11,6 +11,44 @@ if (typeof window !== "undefined" && "speechSynthesis" in window) {
   window.speechSynthesis.onvoiceschanged = updateVoices;
 }
 
+// ── Preferred neural/Google voice name patterns (priority order) ─────────
+const PREFERRED_EN_VOICE_PATTERNS = [
+  /google.*us.*english/i,
+  /google.*uk.*english/i,
+  /google.*en/i,
+  /samantha/i,      // macOS natural voice
+  /karen/i,         // macOS AU
+  /victoria/i,      // macOS
+  /daniel/i,        // macOS UK
+  /google/i,        // any Google voice as fallback
+];
+
+function selectBestVoice(voices, langCode) {
+  if (langCode === "hi") {
+    return voices.find(v => v.lang.toLowerCase().includes("hi") || v.name.includes("हिन्दी") || v.name.includes("Hindi")) || null;
+  }
+  if (langCode === "bn" || langCode === "as") {
+    return voices.find(v => v.lang.toLowerCase().includes("bn") || v.name.includes("বাংলা") || v.name.includes("Bengali"))
+      || voices.find(v => v.lang.toLowerCase().includes("as"))
+      || voices.find(v => v.lang.toLowerCase().includes("hi") || v.name.includes("Hindi"))
+      || null;
+  }
+  if (langCode === "mni") {
+    return voices.find(v => v.lang.toLowerCase().includes("hi") || v.name.includes("Hindi"))
+      || voices.find(v => v.lang.toLowerCase().includes("bn") || v.name.includes("Bengali"))
+      || null;
+  }
+  // English — prefer neural/Google voices, then regional English, then anything
+  for (const pattern of PREFERRED_EN_VOICE_PATTERNS) {
+    const found = voices.find(v => pattern.test(v.name));
+    if (found) return found;
+  }
+  return voices.find(v => v.lang.toLowerCase().startsWith("en-in"))
+    || voices.find(v => v.lang.toLowerCase().startsWith("en"))
+    || voices[0]
+    || null;
+}
+
 // ── Web Audio Chime Sound Effect ─────────────────────────────────────
 export function playSelectSound() {
   try {
@@ -66,12 +104,21 @@ export function stopSpeaking() {
   }
 }
 
-export function speak(text, language = "en-IN") {
-  if (!text || typeof text !== "string") return false;
+export function speak(text, language = "en-IN", onEnd = null) {
+  if (!text || typeof text !== "string") {
+    onEnd?.();
+    return false;
+  }
   const cleanText = text.trim();
-  if (!cleanText) return false;
+  if (!cleanText) {
+    onEnd?.();
+    return false;
+  }
 
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return false;
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    onEnd?.();
+    return false;
+  }
 
   try {
     // If speech engine is currently active, cancel previous speech
@@ -87,53 +134,45 @@ export function speak(text, language = "en-IN") {
     speakTimer = setTimeout(() => {
       try {
         const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.rate = 0.90; // Slightly slower pace for elder accessibility
-        utterance.pitch = 1.0;
+        // Warm, natural pace — 0.97 sounds conversational without being too fast for elderly
+        utterance.rate = 0.97;
+        // Slightly higher pitch (1.05) gives a friendlier, warmer tone
+        utterance.pitch = 1.05;
         utterance.volume = 1.0;
 
         const langCode = (language || "en-IN").split("-")[0].toLowerCase();
-        let voices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
+        const voices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
 
-        let matchedVoice = null;
-        let effectiveLangTag = "en-IN"; // Safe default
+        const matchedVoice = selectBestVoice(voices, langCode);
+        const fallbackLangMap = { hi: "hi-IN", bn: "bn-IN", as: "as-IN", mni: "hi-IN" };
+        const effectiveLangTag = matchedVoice
+          ? matchedVoice.lang
+          : (fallbackLangMap[langCode] || "en-IN");
 
-        if (langCode === "hi") {
-          // Hindi: Google हिन्दी / hi-IN
-          matchedVoice = voices.find(v => v.lang.toLowerCase().includes("hi") || v.name.includes("हिन्दी") || v.name.includes("Hindi"));
-          effectiveLangTag = matchedVoice ? matchedVoice.lang : "hi-IN";
-        } else if (langCode === "bn" || langCode === "as") {
-          // Bengali & Assamese (Assamese script shares Nagari script with Bengali for clear vocalization)
-          matchedVoice = voices.find(v => v.lang.toLowerCase().includes("bn") || v.name.includes("বাংলা") || v.name.includes("Bengali"))
-            || voices.find(v => v.lang.toLowerCase().includes("as"))
-            || voices.find(v => v.lang.toLowerCase().includes("hi") || v.name.includes("Hindi"));
-          effectiveLangTag = matchedVoice ? matchedVoice.lang : "bn-IN";
-        } else if (langCode === "mni") {
-          // Meitei
-          matchedVoice = voices.find(v => v.lang.toLowerCase().includes("hi") || v.name.includes("Hindi"))
-            || voices.find(v => v.lang.toLowerCase().includes("bn") || v.name.includes("Bengali"));
-          effectiveLangTag = matchedVoice ? matchedVoice.lang : "hi-IN";
-        } else {
-          // English & default
-          matchedVoice = voices.find(v => v.lang.toLowerCase().startsWith(langCode))
-            || voices.find(v => v.lang.toLowerCase().includes("in"))
-            || voices.find(v => v.lang.toLowerCase().includes("en"))
-            || voices[0];
-          effectiveLangTag = matchedVoice ? matchedVoice.lang : "en-IN";
-        }
-
-        // CRITICAL: utterance.lang MUST match matchedVoice.lang to prevent Chrome language mismatch abort
+        // CRITICAL: utterance.lang MUST match matchedVoice.lang to prevent Chrome abort
         utterance.lang = effectiveLangTag;
         if (matchedVoice) {
           utterance.voice = matchedVoice;
         }
 
+        let hasFinished = false;
+        const finishSpeech = () => {
+          if (!hasFinished) {
+            hasFinished = true;
+            onEnd?.();
+          }
+        };
+
+        utterance.onend = () => finishSpeech();
         utterance.onerror = (e) => {
           console.warn("SpeechSynthesis utterance error:", e);
+          finishSpeech();
         };
 
         window.speechSynthesis.speak(utterance);
       } catch (innerErr) {
         console.error("Inner speak error:", innerErr);
+        onEnd?.();
       } finally {
         speakTimer = null;
       }
@@ -142,8 +181,39 @@ export function speak(text, language = "en-IN") {
     return true;
   } catch (err) {
     console.error("Outer speak error:", err);
+    onEnd?.();
     return false;
   }
+}
+
+// ── Chunked Speech — speaks sentences with natural pauses between them ───
+// Accepts an array of strings. Plays them sequentially with a 220ms gap.
+// Cancellable via stopSpeaking(). Calls onEnd when all sentences finish.
+export function speakChunked(sentences, language = "en-IN", onEnd = null) {
+  if (!sentences || sentences.length === 0) {
+    onEnd?.();
+    return;
+  }
+
+  const remaining = [...sentences.filter(Boolean)];
+
+  function playNext() {
+    if (remaining.length === 0) {
+      onEnd?.();
+      return;
+    }
+    const sentence = remaining.shift();
+    speak(sentence, language, () => {
+      if (remaining.length > 0) {
+        // Natural inter-sentence pause
+        setTimeout(playNext, 220);
+      } else {
+        onEnd?.();
+      }
+    });
+  }
+
+  playNext();
 }
 
 // ── Multi-Stage Web Speech Recognition with Language Fallback ──────

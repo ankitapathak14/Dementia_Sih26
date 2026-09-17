@@ -1,13 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { toggleReminderStatus, getMemoryItems, getReminders } from "../services/api";
 import { useI18n } from "../i18n/LanguageContext";
 import { speak, playSelectSound } from "../utils/voice";
+import { registerVoiceContext } from "../utils/voiceDispatcher";
+import { useVoicePageAnnouncer } from "../hooks/useVoicePageAnnouncer";
 
 export default function DailyCare() {
   const { t, language } = useI18n();
   const [reminders, setReminders] = useState([]);
   const [memories, setMemories] = useState([]);
   const [toastMsg, setToastMsg] = useState(null);
+  const remindersRef = useRef([]);
+
+  useEffect(() => {
+    remindersRef.current = reminders;
+  }, [reminders]);
 
   useEffect(() => {
     Promise.all([getReminders(), getMemoryItems()])
@@ -49,6 +56,72 @@ export default function DailyCare() {
   }
 
   const completedCount = reminders.filter(r => r.status === "completed").length;
+  const pendingReminders = reminders.filter(r => r.status !== "completed");
+
+  // ── Voice: Register daily care context ────────────────────────────────
+  useEffect(() => {
+    const unregister = registerVoiceContext("daily_care", (rawText, parsed) => {
+      const text = rawText.toLowerCase();
+      const pending = remindersRef.current.filter(r => r.status !== "completed");
+
+      // "what do I need to do" / "what's pending"
+      if (/what.*(pending|need|today|left|remaining)|pending|list|remind/i.test(text)) {
+        if (pending.length === 0) {
+          return { handled: true, speakText: "All done! You have completed all your reminders for today. Great work!" };
+        }
+        const names = pending.slice(0, 3).map(r => r.title).join(", ");
+        const more = pending.length > 3 ? ` and ${pending.length - 3} more` : "";
+        return {
+          handled: true,
+          speakText: `You have ${pending.length} pending: ${names}${more}. Say "mark done" to complete the first one.`,
+        };
+      }
+
+      // "mark done" / "I took it" / "done" / "finished"
+      if (/mark.*done|i took|i've taken|done|finished|completed|complete it/i.test(text)) {
+        if (pending.length === 0) {
+          return { handled: true, speakText: "All your reminders are already complete. Well done!" };
+        }
+        const first = pending[0];
+        handleToggle(first.id, first.title, first.status);
+        return {
+          handled: true,
+          speakText: `Marked "${first.title}" as complete.`,
+        };
+      }
+
+      return false;
+    }, pendingReminders.map(r => ({ id: r.id, label: r.title })));
+
+    return unregister;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reminders]);
+
+  // ── Voice: Proactive reminder summary on mount ──────────────────────
+  const langCode = (language || "en-IN").split("-")[0].toLowerCase();
+  const pending = reminders.filter(r => r.status !== "completed");
+  const careAnnouncement = langCode === "hi"
+    ? [
+        "आपकी दैनंदिन देखभाल खुल गई है।",
+        pending.length > 0
+          ? `आपके आज ${pending.length} याद बाकी हैं। "मार्क डन" कहें पहले को पूरा करने के लिए।`
+          : "आज के सभी काम पूरे हो गए। शाबाश!",
+      ]
+    : langCode === "bn"
+    ? [
+        "আপনার দৈনিক যত্ন খুলেছে।",
+        pending.length > 0
+          ? `আজকে আপনার ${pending.length}টি কাজ বাকি রয়েছে। "মার্ক ডান" বলুন প্রথমটি সম্পন্ন করতে।`
+          : "আজকের সব কাজ হয়ে গেছে। খুব ভালো!",
+      ]
+    : [
+        "Here are your reminders for today.",
+        pending.length > 0
+          ? `You have ${pending.length} item${pending.length > 1 ? "s" : ""} still pending. Say "mark done" to complete the first one.`
+          : "All done! You have completed everything for today. Well done!",
+      ];
+
+  useVoicePageAnnouncer(null, careAnnouncement);
 
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: "40px 24px", color: "#fff", fontFamily: "'DM Sans', sans-serif" }}>

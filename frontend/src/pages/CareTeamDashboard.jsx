@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCareDashboard, getCarePatientDashboard } from "../services/api";
+import RhythmAnalytics from "../components/games/RhythmRecall/RhythmAnalytics";
 
 const Card = ({ title, icon, children, badge, style = {} }) => (
   <section
@@ -241,6 +242,11 @@ export default function CareTeamDashboard({ doctor = false }) {
                 </div>
               </div>
             </Card>
+          </div>
+
+          {/* Rhythm & Recall Music Engagement Analytics */}
+          <div style={{ marginTop: 24 }}>
+            <RhythmAnalytics patientId={detail.patient_id} />
           </div>
         </>
       )}
